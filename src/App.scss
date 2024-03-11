@@ -1,0 +1,34 @@
+.show{
+  width: 100vw !important;
+  --bs-modal-width: 100vw !important;
+  max-width: 100vw !important;
+  overflow: hidden !important;
+  padding: unset !important;
+}
+#root{
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#channels-timeline-days{
+  height: 30px;
+  text-align: center;
+  position: fixed;
+  width: 180px;
+  margin-top: -30px;
+  z-index: 1;
+  background-color: black;
+}
+
+#now-bar{
+  width: 15px;
+  height: 100%;
+  display: flex;
+  position: absolute;
+}
+
+.modal-body{
+  padding: unset;
+}
