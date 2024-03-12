@@ -4,20 +4,26 @@ import Modal from "react-bootstrap/Modal";
 import Spinner from "react-bootstrap/Spinner";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./App.scss";
+import BG from "./assests/naruto_bg.jpg";
 
 const CHANNELS_QTY = 200;
 const EVENT_WIDTH = 300;
 const DAY_WIDTH = 7200;
 const DAY_HEIGHT = CHANNELS_QTY * 30;
 const DAYS = 2;
+var moveBarIntervalId = null;
 
 const App = React.memo(() => {
-  let moveBarIntervalId = null;
   const [channels, setChannels] = useState(null);
   const [show, setShow] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentEvent, setCurrentEvent] = useState(null);
 
-  const handleClose = () => setShow(false);
+  const handleClose = () => {
+    setShow(false);
+    clearInterval(moveBarIntervalId);
+    moveBarIntervalId = null;
+  };
   const handleShow = () => {
     setIsLoading(true);
     fetchData();
@@ -31,7 +37,6 @@ const App = React.memo(() => {
           CHANNELS_QTY
       );
       const fetchRes = await fetchD.json();
-      debugger;
       setChannels(fetchRes.response.channels);
     } catch (error) {
       //Message to Log service
@@ -53,11 +58,13 @@ const App = React.memo(() => {
   const mouseScrollListener = () => {
     const scrollableDiv = document.getElementById("events");
     const scrollableChannelsDiv = document.getElementById("channels");
+    const timeLineEvents = document.getElementById("timeline-hours");
     let isDown = false;
     let startX;
     let startY;
     let scrollLeft;
     let scrollTop;
+    let currentHeaderTimeLineTop;
     if (!scrollableDiv) return;
     scrollableDiv.addEventListener("mousedown", (e) => {
       isDown = true;
@@ -65,6 +72,7 @@ const App = React.memo(() => {
       startY = e.pageY - scrollableDiv.offsetTop;
       scrollLeft = scrollableDiv.scrollLeft;
       scrollTop = scrollableDiv.scrollTop;
+      currentHeaderTimeLineTop = parseInt(timeLineEvents.style.top);
     });
     scrollableDiv.addEventListener("mouseup", () => {
       isDown = false;
@@ -79,28 +87,50 @@ const App = React.memo(() => {
       const walkY = (y - startY) * 2;
       scrollableDiv.scrollTop = scrollTop - walkY;
       scrollableChannelsDiv.scrollTop = scrollTop - walkY;
+      if (walkY < 0 && currentHeaderTimeLineTop === 0) {
+        timeLineEvents.style.top = walkY * -1 + "px";
+        //timeLineEvents.style.background = "blue";
+      }
+      //if the walk is negative, but the original header has moved and be in another position,
+      //we have to add the walking to the current position
+      if (walkY < 0 && currentHeaderTimeLineTop > 0) {
+        timeLineEvents.style.top = walkY * -1 + currentHeaderTimeLineTop + "px";
+        //timeLineEvents.style.background = "red";
+      }
+      if (walkY > 0 && currentHeaderTimeLineTop > 0) {
+        timeLineEvents.style.top = currentHeaderTimeLineTop - walkY + "px";
+        //timeLineEvents.style.background = "pink";
+      }
     });
   };
 
-  useEffect(() => {
-    return () => clearInterval(moveBarIntervalId);
-  }, []);
-
   const observerCallback = (mutations) => {
+    if (moveBarIntervalId && show) return;
     for (let mutation of mutations) {
       if (mutation.addedNodes.length > 0) {
+        debugger;
         if (mutation.addedNodes[0].getAttribute("role") === "dialog") {
           if (
             mutation.addedNodes[0].firstChild.getAttribute("id") ===
             "content-modal"
           ) {
-            mouseScrollListener();
-            moveNowBarJob();
-            const nowTime = new Date();
-            const hours = nowTime.getHours();
-            const scrollableDiv = document.getElementById("events");
-            if (scrollableDiv)
-              scrollableDiv.scrollLeft = (hours - 1) * EVENT_WIDTH;
+            if (!moveBarIntervalId && show) {
+              console.log("ObserverTouched::::::::::::::: ");
+              mouseScrollListener();
+              moveNowBarJob();
+              const nowTime = new Date();
+              const hours = nowTime.getHours();
+              const scrollableDiv = document.getElementById("events");
+              if (scrollableDiv)
+                scrollableDiv.scrollLeft = (hours - 1) * EVENT_WIDTH;
+              moveBarIntervalId = setInterval(() => {
+                moveNowBarJob();
+              }, 60000);
+              console.log(
+                "moveBarIntervalId::::::::::::::::: ",
+                moveBarIntervalId
+              );
+            }
           }
         }
       }
@@ -111,14 +141,11 @@ const App = React.memo(() => {
   if (bodyElement)
     observer.observe(bodyElement[0], {
       childList: true,
-      subtree: true,
+      //subtree: true,
     });
 
   useEffect(() => {
     if (channels && channels.length > 0) {
-      moveBarIntervalId = setInterval(() => {
-        moveNowBarJob();
-      }, 60000);
       setIsLoading(false);
     }
   }, [channels]);
@@ -128,7 +155,6 @@ const App = React.memo(() => {
     const hours = Math.floor(Math.random() * 10);
     const minutes = Math.floor(Math.random() * 60);
     const seconds = Math.floor(Math.random() * 60);
-    debugger;
     return hours + minutes + seconds;
   };
 
@@ -145,7 +171,6 @@ const App = React.memo(() => {
     const hours = Math.floor(parseInt(all[0] * 60));
     const minutes = Math.floor(parseInt(all[1]));
     const seconds = Math.floor(parseInt(all[2]));
-    //debugger
     //60 - EVENT_WIDTH
     //30 - ( sum * EVENT_WIDTH / 60 )
     return ((hours + minutes + seconds) * EVENT_WIDTH) / 60;
@@ -198,7 +223,9 @@ const App = React.memo(() => {
             No te vayas, estamos cargando tus programas favoritos...
           </Modal.Title>
         </Modal.Header>
-        <Modal.Body style={{ display: "flex", justifyContent: "center", padding: 15 }}>
+        <Modal.Body
+          style={{ display: "flex", justifyContent: "center", padding: 15 }}
+        >
           <Spinner animation="border" variant="primary" />
         </Modal.Body>
       </Modal>
@@ -215,15 +242,99 @@ const App = React.memo(() => {
         <Modal.Body>
           <main>
             <section
+              id="event-details"
               style={{
                 width: "100%",
-                height: "100%",
+                height: "50vh",
+                backgroundImage: "url(" + BG + ")",
+                backgroundRepeat: "no-repeat",
+                backgroundSize: "cover",
+                alignContent: "center",
+                position: "relative",
               }}
-            ></section>
+            >
+              <Button
+                onClick={handleClose}
+                style={{
+                  position: "absolute",
+                  zIndex: 1,
+                  backgroundColor: "transparent",
+                  right: 0,
+                }}
+              >
+                X
+              </Button>
+              <div
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  backgroundColor: "black",
+                  opacity: 0.5,
+                }}
+              ></div>
+              <div
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  position: "absolute",
+                  top: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  padding: 80,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 25,
+                    color: "white",
+                  }}
+                >
+                  {" "}
+                  Detalles del programa:{" "}
+                  {currentEvent && currentEvent.unix_begin}{" "}
+                </span>
+                <span
+                  style={{
+                    fontSize: 20,
+                    color: "white",
+                  }}
+                >
+                  {currentEvent &&
+                    new Date(currentEvent.date_begin).getHours() +
+                      ":" +
+                      new Date(currentEvent.date_begin).getMinutes() +
+                      "hs a " +
+                      new Date(currentEvent.date_end).getHours() +
+                      ":" +
+                      new Date(currentEvent.date_end).getMinutes() +
+                      "hs" +
+                      " " +
+                      currentEvent.duration}
+                </span>
+                <span
+                  style={{
+                    fontSize: 20,
+                    color: "white",
+                  }}
+                >
+                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+                  Aliquam porttitor justo non nulla feugiat, in tempor tortor
+                  aliquet. Curabitur leo ex, sollicitudin mollis laoreet nec,
+                  fringilla in arcu. Cras imperdiet metus tempus odio faucibus
+                  ultricies. Suspendisse potenti. Curabitur euismod turpis eget
+                  mi finibus, sed interdum eros congue. Nunc molestie, leo non
+                  eleifend vestibulum, lectus purus malesuada ex, vel
+                  scelerisque nisl leo eu libero. Donec congue sem euismod
+                  libero fermentum dignissim. Vestibulum vitae ipsum non augue
+                  porttitor blandit. Vestibulum tristique purus sit amet metus
+                  pharetra, vel laoreet velit malesuada.
+                </span>
+              </div>
+            </section>
             <section
               style={{
                 width: "100%",
-                height: "100vh",
+                height: "50vh",
                 display: "-webkit-box",
               }}
             >
@@ -340,6 +451,8 @@ const App = React.memo(() => {
                       gridTemplateColumns: `repeat(${24 * DAYS}, 1fr)`,
                       boxSizing: "border-box",
                       backgroundColor: "black",
+                      position: "absolute",
+                      top: 0,
                       //position: "fixed",
                       zIndex: 1,
                       //overflowX: "auto"
@@ -398,6 +511,15 @@ const App = React.memo(() => {
                                   left: setEventPosition(eventShow.date_begin),
                                   position: "absolute",
                                 }}
+                                onMouseEnter={() => {
+                                  if (
+                                    currentEvent?.unix_begin !==
+                                    eventShow.unix_begin
+                                  ) {
+                                    setCurrentEvent(eventShow);
+                                  }
+                                }}
+                                //onMouseLeave={() => setCurrentEvent(null)}
                               >
                                 <span style={{ color: "white", fontSize: 20 }}>
                                   {eventShow.unix_begin}
